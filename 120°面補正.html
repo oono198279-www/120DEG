@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>120°面 補正ツール（式と図付き・シンプル2タブ）</title>
+<style>
+  :root{
+    --pad:14px;--radius:12px;--gap:10px;--fs:16px;
+    --accent:#3b82f6; /* ボタン/タブの文字色（ライトと同じ青） */
+  }
+  *{box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;line-height:1.45;font-size:var(--fs)}
+  header{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;z-index:5}
+
+  /* ダークモード（文字色は上書きしない＝青のまま） */
+  @media (prefers-color-scheme: dark){
+    body{background:#111;color:#eee}
+    header{background:#111;border-color:#333}
+    fieldset{border-color:#333}
+    /* ← 結果欄は明るい背景＆黒文字を維持 */
+    .out{
+      background:#f7f7f7;
+      color:#000;
+      border-color:#444;
+    }
+    .formula,.svgwrap{background:#151515;border-color:#333}
+
+    .tab{
+      background:#1a1a1a;     /* 地色だけ変える */
+      border-color:#444;
+      /* color は指定しない→ライトと同じ青のまま */
+    }
+    .tab[aria-selected="true"]{
+      background:#2a2a2a;
+      border-color:#666;
+      /* color 指定なし */
+    }
+    button{
+      background:#2a2a2a;      /* 地色だけ変える */
+      border-color:#666;
+      /* color 指定なし→青のまま */
+    }
+    button:active{background:#242424}
+    button:disabled{opacity:.6; cursor:not-allowed;}
+
+    input{
+      background:#1a1a1a;
+      border-color:#444;
+      color:#eee;
+    }
+    input::placeholder{color:#888}
+  }
+
+  .tabs{display:flex;gap:var(--gap);padding:var(--pad)}
+  .tab{
+    flex:1;text-align:center;padding:12px;border:1px solid #ccc;border-radius:10px;
+    background:#f2f2f2;user-select:none;
+    color:var(--accent);          /* ← 青で固定（ライト/ダーク共通） */
+    font-weight:600;
+  }
+  .tab[aria-selected="true"]{background:#e6e6e6;border-color:#aaa}
+  main{padding:var(--pad);padding-top:8px}
+  fieldset{border:1px solid #ccc;border-radius:var(--radius);margin:12px 0;padding:12px}
+  legend{padding:0 6px}
+  label{display:block;margin:.5rem 0 .2rem}
+  input{width:100%;padding:.8rem;border:1px solid #bbb;border-radius:10px;font-size:1rem}
+  .out{
+    background:#f7f7f7;border-radius:10px;padding:.8rem;margin-top:.6rem;
+    color:#000; /* ★ 常に黒文字 */
+  }
+  .note{font-size:.92rem;opacity:.85}
+  button{
+    width:100%;padding:1rem;margin-top:.8rem;border:1px solid #999;border-radius:12px;background:#efefef;
+    color:var(--accent);          /* ← 青で固定（ライト/ダーク共通） */
+    font-weight:700;
+  }
+  .hidden{display:none}
+  .footer{opacity:.7;font-size:.85rem;margin:20px var(--pad) 24px}
+  .radios{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:.3rem 0 .6rem}
+  .inline{display:inline-block;margin-right:.5rem}
+  .formula{border:1px dashed #bbb;border-radius:10px;padding:.8rem;margin-top:8px;font-family:ui-monospace,Consolas,Menlo,monospace}
+  .svgwrap{border:1px dashed #bbb;border-radius:10px;padding:.4rem;margin-top:8px}
+  svg{width:100%;height:auto;display:block}
+  .small{font-size:.86rem;opacity:.9}
+</style>
+
+<header>
+  <div class="tabs" role="tablist" aria-label="計算メニュー">
+    <button class="tab" id="tabZ" role="tab" aria-selected="true"  aria-controls="panelZ">① 面径→Z追加</button>
+    <button class="tab" id="tabX" role="tab" aria-selected="false" aria-controls="panelX">② 角度→X補正</button>
+  </div>
+</header>
+
+<main>
+  <!-- ① 面径→Z追加（下穴径入力は省略） -->
+  <section id="panelZ" role="tabpanel" aria-labelledby="tabZ">
+    <fieldset>
+      <legend><b>面径 → 追加Z送り（Δh）</b></legend>
+      <label>現在の面径 D_now (mm)</label>
+      <input id="Dnow" type="number" step="0.01" placeholder="例: 8.50">
+      <label>目標の面径 D_target (mm)</label>
+      <input id="Dtar" type="number" step="0.01" placeholder="例: 9.00">
+      <label>面取り頂角 A (°) ※通常120°</label>
+      <input id="A" type="number" step="0.1" value="120">
+      <button id="btnZ">Δh を計算</button>
+      <div class="out" id="outZ">結果がここに出ます</div>
+
+      <div class="formula">
+        # 面径→Z追加（幾何式）<br>
+        α = A / 2<br>
+        Δh = ( D_target − D_now ) / ( 2 · tan(α) )<br>
+        ※ A=120°なら 2·tan60° ≈ 3.464
+      </div>
+
+      <div class="svgwrap">
+        <!-- 円錐面の断面模式図（Dnow→Dtar と Z方向Δh） -->
+        <svg viewBox="0 0 360 170" aria-label="面径とZ送りの模式図">
+          <line x1="20" y1="140" x2="340" y2="140" stroke="#999" stroke-width="2"/>
+          <polyline points="120,140 180,60 240,140" fill="none" stroke="#4a90e2" stroke-width="3"/>
+          <polyline points="100,140 180,40 260,140" fill="none" stroke="#7ed321" stroke-width="3" stroke-dasharray="6,6"/>
+          <line x1="120" y1="150" x2="240" y2="150" stroke="#4a90e2" stroke-width="2"/>
+          <line x1="100" y1="162" x2="260" y2="162" stroke="#7ed321" stroke-width="2"/>
+          <text x="180" y="147" text-anchor="middle" font-size="12" fill="#4a90e2">D_now</text>
+          <text x="180" y="165" text-anchor="middle" font-size="12" fill="#7ed321">D_target</text>
+          <line x1="180" y1="60" x2="180" y2="40" stroke="#e74c3c" stroke-width="3" marker-end="url(#arrow)"/>
+          <text x="186" y="52" font-size="12" fill="#e74c3c">Δh</text>
+          <path d="M175,68 A12,12 0 0,1 185,68" fill="none" stroke="#aaa" stroke-width="2"/>
+          <text x="190" y="72" font-size="11" fill="#aaa">A=120°</text>
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+              <polygon points="0,0 10,4 0,8" fill="#e74c3c"/>
+            </marker>
+          </defs>
+        </svg>
+        <div class="small">青=現在の円錐面、緑=目標の円錐面（破線）。赤が追加Z送り Δh。</div>
+      </div>
+    </fieldset>
+  </section>
+
+  <!-- ② 角度→X補正（理論値/手動 切替＋式＋図） -->
+  <section id="panelX" class="hidden" role="tabpanel" aria-labelledby="tabX">
+    <fieldset>
+      <legend><b>角度 → X補正（ΔX）</b></legend>
+
+      <div class="radios">
+        <label class="inline"><input type="radio" name="sxMode" value="theory" checked> 理論値 (Sx = 5.0 °/mm)</label>
+        <label class="inline"><input type="radio" name="sxMode" value="manual"> 手動入力</label>
+      </div>
+
+      <label>Sx (°/mm)</label>
+      <input id="Sx" type="number" step="0.0001" value="5.0" readonly>
+
+      <label>現在の角度 A_now (°)</label>
+      <input id="A_now" type="number" step="0.01" placeholder="例: 119.2">
+
+      <label>目標角度 A_target (°)</label>
+      <input id="A_tar" type="number" step="0.01" value="120.0">
+
+      <button id="btnX">X補正を計算</button>
+      <div class="out" id="outX">結果がここに出ます</div>
+
+      <div class="formula">
+        # 角度→X補正（感度 Sx 使用）<br>
+        ΔA = A_target − A_now<br>
+        ΔX = ΔA / Sx　（単位整合：Sx は °/mm 等）<br>
+        公差表示：A_target ± 1.0°
+      </div>
+
+      <div class="svgwrap">
+        <svg viewBox="0 0 360 190" aria-label="角度とX補正の模式図">
+          <line x1="180" y1="40" x2="180" y2="150" stroke="#bbb" stroke-width="2" stroke-dasharray="4,4"/>
+          <polygon points="120,150 180,40 240,150" fill="none" stroke="#4a90e2" stroke-width="3"/>
+          <polygon points="100,150 180,40 260,150" fill="none" stroke="#7ed321" stroke-width="3" stroke-dasharray="6,6"/>
+          <path d="M170,60 A14,14 0 0,1 190,60" fill="none" stroke="#aaa" stroke-width="2"/>
+          <text x="195" y="64" font-size="11" fill="#aaa">A</text>
+          <line x1="240" y1="158" x2="260" y2="158" stroke="#e74c3c" stroke-width="3" marker-end="url(#arrow2)"/>
+          <text x="250" y="172" font-size="12" fill="#e74c3c">ΔX（鈍角化）</text>
+          <defs>
+            <marker id="arrow2" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+              <polygon points="0,0 10,4 0,8" fill="#e74c3c"/>
+            </marker>
+          </defs>
+        </svg>
+        <div class="small">青=現在、緑破線=目標。Xを外へ動かす（底辺を広げる）と角度Aは大きくなる。</div>
+      </div>
+    </fieldset>
+  </section>
+</main>
+
+<div class="footer">前回開いたタブは保存されます。オフラインOK。</div>
+
+<script>
+  const rad = d => d*Math.PI/180, deg = r => r*180/Math.PI;
+  const $ = id => document.getElementById(id);
+  const setHTML = (id, html) => $(id).innerHTML = html;
+
+  // ① 面径→Z追加
+  $('btnZ').addEventListener('click', ()=>{
+    const Dnow = parseFloat($('Dnow').value);
+    const Dtar = parseFloat($('Dtar').value);
+    const A    = parseFloat($('A').value||120);
+    if(isNaN(Dnow)||isNaN(Dtar)){ setHTML('outZ','数値を入れてください'); return; }
+    const alpha = rad(A/2);
+    const denom = 2*Math.tan(alpha);
+    const dh = (Dtar - Dnow)/denom;
+    setHTML('outZ', `追加送り量 Δh = <b>${dh.toFixed(4)} mm</b><br>(2·tan(A/2) = ${denom.toFixed(3)})`);
+  });
+
+  // ② 角度→X補正（理論値/手動 切替）
+  const sxInput = $('Sx');
+  document.querySelectorAll('input[name="sxMode"]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      if(el.value==="theory" && el.checked){
+        sxInput.value = 5.0;
+        sxInput.readOnly = true;
+      } else if(el.value==="manual" && el.checked){
+        sxInput.readOnly = false;
+        const saved = localStorage.getItem('Sx_manual');
+        sxInput.value = saved ?? "";
+      }
+    });
+  });
+
+  $('btnX').addEventListener('click', ()=>{
+    const A_now = parseFloat($('A_now').value);
+    const A_tar = parseFloat($('A_tar').value||120);
+    const Sx    = parseFloat(sxInput.value);
+    if([A_now,A_tar,Sx].some(isNaN)){ setHTML('outX','数値を入れてください'); return; }
+    if(Math.abs(Sx)<1e-12){ setHTML('outX','Sx が 0 に近いです。手動で見直してください。'); return; }
+    const manualOn = document.querySelector('input[name="sxMode"][value="manual"]').checked;
+    if(manualOn){ localStorage.setItem('Sx_manual', sxInput.value); }
+    const dA = A_tar - A_now;
+    const dX = dA / Sx;
+    const tol = `${(A_tar-1).toFixed(1)}°〜${(A_tar+1).toFixed(1)}°`;
+    setHTML('outX',
+      `角度差 ΔA = ${dA.toFixed(3)}°<br>` +
+      `必要な X補正 ΔX = <b>${dX.toFixed(4)} mm</b><br>` +
+      `<span class="note">公差範囲: ${tol}</span>`);
+  });
+
+  // タブ切替＋記憶
+  const tabs = [['tabZ','panelZ'],['tabX','panelX']];
+  function sel(id){
+    tabs.forEach(([t,p])=>{
+      $(t).setAttribute('aria-selected', t===id ? 'true':'false');
+      $(p).classList.toggle('hidden', t!==id);
+    });
+    localStorage.setItem('tab120_simple', id);
+  }
+  tabs.forEach(([t])=> $(t).addEventListener('click', ()=>sel(t)));
+  sel(localStorage.getItem('tab120_simple') || 'tabZ');
+</script>
+</html>

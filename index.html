@@ -84,6 +84,11 @@
   .small{font-size:.86rem;opacity:.9}
 </style>
 
+<!-- Added for PWA -->
+<link rel="manifest" href="/120DEG/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/120DEG/icons/apple-touch-icon-180.png">
+<meta name="theme-color" content="#0f172a">
+
 <header>
   <div class="tabs" role="tablist" aria-label="計算メニュー">
     <button class="tab" id="tabZ" role="tab" aria-selected="true"  aria-controls="panelZ">① 面径→Z追加</button>
@@ -249,5 +254,15 @@
   }
   tabs.forEach(([t])=> $(t).addEventListener('click', ()=>sel(t)));
   sel(localStorage.getItem('tab120_simple') || 'tabZ');
+</script>
+
+<!-- Service Worker register -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/120DEG/sw.js')
+      .catch(console.error);
+  });
+}
 </script>
 </html>
